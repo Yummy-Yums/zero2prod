@@ -4,6 +4,32 @@ use sqlx::{PgConnection, Connection, PgPool, Executor};
 use uuid::Uuid;
 use zero2prod::configuration::{get_configuration, DatabaseSettings, Settings};
 use zero2prod::startup::run;
+use zero2prod::telemetry::{get_subscriber, init_subscriber};
+use once_cell::sync::Lazy;
+use secrecy::ExposeSecret;
+
+static TRACING: Lazy<()> = Lazy::new(|| {
+    let default_filter_level = "info".to_string();
+    let subscriber_name  = "test".to_string();
+    
+    if std::env::var("TEST_LOG").is_ok() {
+        let subscriber = get_subscriber(
+            subscriber_name, 
+            default_filter_level,
+            std::io::stdout,
+        );
+
+        init_subscriber(subscriber);
+    } else {
+        let subscriber = get_subscriber(
+            subscriber_name,
+            default_filter_level,
+            std::io::sink,
+        );
+
+        init_subscriber(subscriber);
+    }
+});
 
 pub struct TestApp {
     pub address: String,
@@ -11,8 +37,12 @@ pub struct TestApp {
 }
 
 async fn spawn_app() -> TestApp {
+    
+    Lazy::force(&TRACING);
+    
     let listener = TcpListener::bind("127.0.0.1:0")
         .expect("failed to bind random port");
+    
     let port = listener.local_addr().unwrap().port();
     let address = format!("http://127.0.0.1:{}", port);
 
@@ -34,7 +64,7 @@ async fn spawn_app() -> TestApp {
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
     // Create database
     let mut connection = PgConnection::connect(
-        &config.connection_string_without_db()
+        &config.connection_string_without_db().expose_secret()
     )
         .await
         .expect("Failed to connect to Postgres");
@@ -45,7 +75,7 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to create database");
 
     let connection_pool = PgPool::connect(
-        &config.connection_string()
+        &config.connection_string().expose_secret()
     )
     .await
     .expect("Failed to connect to Postgres");
@@ -96,7 +126,7 @@ async fn subscribe_returns_a_200_for_valid_form_data(){
 
     assert_eq!(200, response.status().as_u16());
 
-    let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
+    let saved = sqlx::query!(r#"SELECT email, name FROM subscriptions"#,)
         .fetch_one(&app.db_pool)
         .await
         .expect("Failed to fetch saved subscription.");

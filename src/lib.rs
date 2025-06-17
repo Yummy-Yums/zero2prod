@@ -1,6 +1,7 @@
 pub mod configuration;
 pub mod routes;
 pub mod startup;
+pub mod telemetry;
 
 use actix_web::Responder;
 use crate::routes::health_check;
