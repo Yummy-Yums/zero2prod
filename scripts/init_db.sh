@@ -22,17 +22,19 @@ DB_PASSWORD="${POSTGRES_PASSWORD:=password}"
 DB_NAME="${POSTGRES_DB:=newsletter}"
 DB_PORT="${POSTGRES_PORT:=5432}"
 DB_HOST="${POSTGRES_HOST:=localhost}"
-CONTAINER_NAME="${CONTAINER_NAME:=newsletter}"
+CONTAINER_NAME="${CONTAINER_NAME:=newsletter_db}"
+DOCKER_HOST="host.docker.internal"
 
 if [[ -z "${SKIP_DOCKER}" ]]
 then
   docker run \
+    --network my-net \
     --name "${CONTAINER_NAME}" \
     -e POSTGRES_USER=${DB_USER} \
     -e POSTGRES_PASSWORD=${DB_PASSWORD} \
     -e POSTGRES_DB=${DB_NAME} \
     -p "${DB_PORT}":5432 \
-    -d postgres:13 \
+    -d postgres \
     postgres -N 1000
 fi
   
