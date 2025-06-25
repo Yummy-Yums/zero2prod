@@ -2,14 +2,12 @@ pub mod configuration;
 pub mod routes;
 pub mod startup;
 pub mod telemetry;
-
-use actix_web::Responder;
-use crate::routes::health_check;
-
+mod domain;
+pub mod email_client;
 
 #[cfg(test)]
 mod tests {
-    use crate::health_check;
+    use crate::routes::health_check;
 
     #[tokio::test]
     async fn health_check_succeeds(){
