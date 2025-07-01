@@ -1,5 +1,9 @@
 application:
   host: 127.0.0.1
+<<<<<<< HEAD
+  base_url: "http://127.0.0.1"
+=======
 email_client:
   base_url: "https://api.postmarkapp.com"
   sender_email: "pohociv197@cristout.com"
+>>>>>>> master
