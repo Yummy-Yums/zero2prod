@@ -1,8 +1,12 @@
+<<<<<<< HEAD
 use linkify::LinkKind;
 use crate::helpers::{spawn_app, ConfirmationLinks};
 use reqwest::Url;
 use wiremock::{ResponseTemplate, Mock, Request};
 use wiremock::matchers::{path, method};
+=======
+use crate::helpers::spawn_app;
+>>>>>>> master
 
 #[tokio::test]
 async fn confirmations_without_token_are_rejected_with_a_400() {
@@ -13,6 +17,7 @@ async fn confirmations_without_token_are_rejected_with_a_400() {
         .unwrap();
     
     assert_eq!(response.status().as_u16(), 400);
+<<<<<<< HEAD
 }
 
 #[tokio::test]
@@ -37,4 +42,6 @@ async fn the_link_returned_by_subscribe_returns_a_200_if_called(){
     
     assert_eq!(response.status().as_u16(), 200);
     
+=======
+>>>>>>> master
 }

@@ -1,5 +1,9 @@
 application:
   host: 0.0.0.0
 email_client:
+<<<<<<< HEAD
   base_url: "https://api.postmarkapp.com"
+=======
+  base_url: "localhost"
+>>>>>>> master
   sender_email: "test@gmail.com"

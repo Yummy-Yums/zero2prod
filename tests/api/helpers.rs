@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 use linkify::LinkKind;
 use once_cell::sync::Lazy;
 use reqwest::Url;
@@ -5,6 +6,13 @@ use secrecy::ExposeSecret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::{MockServer, Request};
+=======
+use once_cell::sync::Lazy;
+use secrecy::ExposeSecret;
+use sqlx::{Connection, Executor, PgConnection, PgPool};
+use uuid::Uuid;
+use wiremock::MockServer;
+>>>>>>> master
 use zero2prod::configuration::{get_configuration, DatabaseSettings, Settings};
 use zero2prod::startup::{get_connection_pool, Application};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
@@ -32,16 +40,22 @@ static TRACING: Lazy<()> = Lazy::new(|| {
     }
 });
 
+<<<<<<< HEAD
 pub struct ConfirmationLinks {
     pub html: Url,
     pub plain_text: Url,
 }
 
+=======
+>>>>>>> master
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
     pub email_server: MockServer,
+<<<<<<< HEAD
     pub port: u16,
+=======
+>>>>>>> master
 }
 
 impl TestApp {
@@ -54,6 +68,7 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+<<<<<<< HEAD
     
     pub async fn post_newsletters(
         &self, 
@@ -102,24 +117,35 @@ impl TestApp {
             plain_text
         }
     }
+=======
+>>>>>>> master
 }
 
 pub async fn spawn_app() -> TestApp {
 
     Lazy::force(&TRACING);
     
+<<<<<<< HEAD
     let email_server: MockServer = MockServer::start().await;
+=======
+    let email_server = MockServer::start().await;
+>>>>>>> master
     
     let configuration: Settings = {
         let mut c: Settings      = get_configuration().expect("failed to read configuration");
         c.database.database_name = Uuid::new_v4().to_string();
         c.application.port       = 0;
+<<<<<<< HEAD
         c.email_client.base_url  = email_server.uri();
+=======
+        c.email_client.base_url = email_server.uri();
+>>>>>>> master
         c
     };
 
     configure_database(&configuration.database).await;
 
+<<<<<<< HEAD
     let application: Application = Application::build(configuration.clone())
         .await
         .expect("failed to build application");
@@ -149,6 +175,19 @@ async fn add_test_user(pool: &PgPool){
     .execute(pool)
     .await
     .expect("Failed to create test users.");
+=======
+    let application = Application::build(configuration.clone())
+        .await
+        .expect("failed to build application");
+    let address = format!("http://127.0.0.1:{}", application.port());
+    let _ = tokio::spawn(application.run_until_stopped());
+
+    TestApp {
+        address,
+        db_pool: get_connection_pool(&configuration.database),
+        email_server,
+    }
+>>>>>>> master
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
