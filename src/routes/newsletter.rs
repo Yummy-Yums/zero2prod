@@ -28,7 +28,8 @@ pub enum PublishError {
     #[error("Authentication failed")]
     AuthError(#[source] Error),
     #[error(transparent)]
-    UnexpectedError(#[from] anyhow::Error),
+    UnexpectedError(#[from] Error),
+
 }
 
 impl std::fmt::Debug for PublishError {
