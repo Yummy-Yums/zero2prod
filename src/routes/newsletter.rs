@@ -1,4 +1,3 @@
-use std::str::Split;
 use actix_web::{HttpResponse, web, ResponseError, HttpRequest};
 use actix_web::http::{header, StatusCode};
 use actix_web::http::header::{HeaderMap, HeaderValue};
@@ -6,6 +5,8 @@ use anyhow::{anyhow, Context, Error};
 use base64::Engine;
 use secrecy::{Secret, ExposeSecret};
 use sqlx::PgPool;
+use sha3::Digest;
+use argon2::{Algorithm, Argon2, Version, Params, PasswordHasher, PasswordHash, PasswordVerifier};
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::routes::subscriptions::error_chain_fmt;
@@ -28,6 +29,7 @@ pub enum PublishError {
     AuthError(#[source] Error),
     #[error(transparent)]
     UnexpectedError(#[from] Error),
+
 }
 
 impl std::fmt::Debug for PublishError {
@@ -37,12 +39,6 @@ impl std::fmt::Debug for PublishError {
 }
 
 impl ResponseError for PublishError {
-    // fn status_code(&self) -> StatusCode {
-    //     match self {
-    //         PublishError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-    //         PublishError::AuthError(_) => StatusCode::UNAUTHORIZED,
-    //     }
-    // }
     
     fn error_response(&self) -> HttpResponse {
         match self {
@@ -62,6 +58,11 @@ impl ResponseError for PublishError {
     }
 }
 
+#[tracing::instrument(
+    name = "Publish a newsletter issue",
+    skip(body, pool, email_client, request)
+    fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
+)]
 pub async fn publish_newsletter(
     body: web::Json<BodyData>,
     pool: web::Data<PgPool>,
@@ -184,26 +185,59 @@ fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Erro
     })
 }
 
+#[tracing::instrument(name = "Validate credentials", skip(credentials))]
 async fn validate_credentials(
     credentials: Credentials,
     pool: &PgPool
 ) -> Result<uuid::Uuid, PublishError> {
-    let user_id: Option<_> = sqlx::query!(
-        r#"
-        SELECT user_id
-        FROM users
-        WHERE username = $1 AND password = $2
-        "#,
-        credentials.username,
-        credentials.password.expose_secret()
+
+    let (user_id, expected_password_hash) = get_stored_credentials(
+        &credentials.username,
+        &pool
     )
-    .fetch_optional(pool)
     .await
-    .context("Failed to fetch user credentials.")
-    .map_err(PublishError::UnexpectedError)?;
+    .map_err(PublishError::UnexpectedError)?
+    .ok_or_else(|| {
+        PublishError::AuthError(anyhow::anyhow!("Unknown username."))
+    })?;
     
-    user_id
-        .map(|row| row.user_id)
-        .ok_or_else(||anyhow::anyhow!("Invalid username or password."))
-        .map_err(PublishError::UnexpectedError)
+    let expected_password_hash = PasswordHash::new(
+        &expected_password_hash.expose_secret()
+    );
+    
+    tracing::info_span!("Verify password hash")
+        .in_scope(|| {
+            Argon2::default()
+                .verify_password(
+                    credentials.password.expose_secret().as_bytes(),
+                    &expected_password_hash?
+                )
+        })
+        .context("Invalid password.")
+        .map_err(PublishError::AuthError)?;
+    
+    Ok(user_id)
+    
+}
+
+
+#[tracing::instrument(name = "Get stored credentials", skip(username, pool))]
+async fn get_stored_credentials(
+    username: &str,
+    pool: &PgPool
+) -> Result<Option<(uuid::Uuid, Secret<String>)>, Error> {
+    let row = sqlx::query!(
+        r#"
+        SELECT user_id, password_hash
+        FROM users
+        WHERE username = $1
+        "#,
+        username,
+    )
+        .fetch_optional(pool)
+        .await
+        .context("Failed to perform a query to retrieve stored credentials")?
+        .map(|row| (row.user_id, Secret::new(row.password_hash)));
+    
+    Ok(row)
 }
